@@ -3,6 +3,8 @@ from datetime import date
 
 from django.http import FileResponse
 from django.utils import timezone
+from django.db.models.functions import ExtractMonth, ExtractYear
+from django.db.models import Count
 
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -173,3 +175,43 @@ class InformeDescargarView(APIView):
         nombre = f"informe_{anio}_{mes:02d}.{formato}"
 
         return respuesta_archivo(archivo, nombre, formato)
+
+
+class PeriodosDisponiblesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        periodos = (
+            Actividad.objects.filter(usuario=request.user)
+            .annotate(
+                mes=ExtractMonth("fecha"),
+                anio=ExtractYear("fecha"),
+            )
+            .values("mes", "anio")
+            .annotate(total=Count("id"))
+            .order_by("-anio", "-mes")
+        )
+
+        hoy = timezone.localdate()
+        disponibles = [
+            {"mes": hoy.month, "anio": hoy.year, "total": 0}
+        ]
+        vistos = {(hoy.month, hoy.year)}
+
+        for periodo in periodos:
+            clave = (periodo["mes"], periodo["anio"])
+            if clave in vistos:
+                for item in disponibles:
+                    if (item["mes"], item["anio"]) == clave:
+                        item["total"] = periodo["total"]
+                        break
+                continue
+
+            vistos.add(clave)
+            disponibles.append({
+                "mes": periodo["mes"],
+                "anio": periodo["anio"],
+                "total": periodo["total"],
+            })
+
+        return Response(disponibles)
