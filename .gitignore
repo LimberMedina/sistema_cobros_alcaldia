@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.env
+.env.*
+!.env.example
+
+# Django
+staticfiles/
+media/
+
+# Flutter
+app_mobile/.dart_tool/
+app_mobile/build/
+app_mobile/.flutter-plugins
+app_mobile/.flutter-plugins-dependencies
+
+# IDE
+.vscode/
+.idea/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+build.sh
