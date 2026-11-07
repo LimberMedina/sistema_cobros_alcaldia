@@ -5,6 +5,7 @@ from .views import (
     SolicitudDescargarView,
     InformeDescargarView,
     PeriodosDisponiblesView,
+    HistorialDocumentosView,
 )
 
 urlpatterns = [
@@ -19,5 +20,9 @@ urlpatterns = [
     path(
         "informe/",
         InformeDescargarView.as_view()
+    ),
+    path(
+        "historial/",
+        HistorialDocumentosView.as_view()
     ),
 ]

@@ -15,6 +15,12 @@ class Actividad(models.Model):
 
     descripcion = models.TextField()
 
+    imagen = models.ImageField(
+        upload_to="actividades/",
+        blank=True,
+        null=True,
+    )
+
     creado_en = models.DateTimeField(auto_now_add=True)
 
     actualizado_en = models.DateTimeField(auto_now=True)

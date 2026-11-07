@@ -23,6 +23,7 @@ from reportlab.platypus import (
     Table,
     TableStyle,
     KeepTogether,
+    Image as ReportLabImage,
 )
 
 
@@ -135,9 +136,12 @@ def carta_word(perfil, mes, anio, fecha, desde=None, hasta=None):
 
     for etiqueta, nombre, cargo in campos:
         if nombre:
-            agregar_parrafo(doc, f"{etiqueta} {nombre}", True)
+            parrafo = doc.add_paragraph()
+            parrafo.add_run(etiqueta).bold = True
+            parrafo.add_run(f" {nombre}")
             if cargo:
-                agregar_parrafo(doc, f"     {cargo}")
+                parrafo_cargo = doc.add_paragraph()
+                parrafo_cargo.add_run(f"     {cargo}").bold = True
 
     doc.add_paragraph("")
 
@@ -201,7 +205,10 @@ def dias_informe(actividades, mes, anio):
 
     for actividad in actividades:
         agrupadas.setdefault(actividad.fecha, []).append(
-            actividad.descripcion
+            (
+                actividad.descripcion,
+                actividad.imagen.path if actividad.imagen else None,
+            )
         )
 
     filas = []
@@ -212,18 +219,18 @@ def dias_informe(actividades, mes, anio):
 
         if not detalles:
             if fecha.weekday() == 5:
-                detalles = ["SÁBADO"]
+                detalles = [("SÁBADO", None)]
             elif fecha.weekday() == 6:
-                detalles = ["DOMINGO"]
+                detalles = [("DOMINGO", None)]
             else:
-                detalles = ["SIN ACTIVIDADES REGISTRADAS"]
+                detalles = [("SIN ACTIVIDADES REGISTRADAS", None)]
 
         filas.append((fecha, detalles))
 
     return filas
 
 
-def informe_word(perfil, mes, anio, actividades):
+def informe_word(perfil, mes, anio, actividades, incluir_fotos=False):
     doc = Document()
     configurar_word(doc)
 
@@ -241,16 +248,20 @@ def informe_word(perfil, mes, anio, actividades):
 
     doc.add_paragraph("")
 
-    tabla = doc.add_table(rows=1, cols=2)
+    tabla = doc.add_table(rows=1, cols=3 if incluir_fotos else 2)
     tabla.style = "Table Grid"
     tabla.alignment = WD_TABLE_ALIGNMENT.CENTER
 
     encabezado = tabla.rows[0].cells
     encabezado[0].text = "FECHA"
     encabezado[1].text = "DETALLE"
+    if incluir_fotos:
+        encabezado[2].text = "FOTO"
 
     encabezado[0].width = Inches(1.25)
-    encabezado[1].width = Inches(5.55)
+    encabezado[1].width = Inches(4.35 if incluir_fotos else 5.55)
+    if incluir_fotos:
+        encabezado[2].width = Inches(1.2)
 
     for celda in encabezado:
         for p in celda.paragraphs:
@@ -266,8 +277,10 @@ def informe_word(perfil, mes, anio, actividades):
 
         celdas[0].text = fecha.strftime("%d/%m/%Y")
         celdas[1].text = ""
+        if incluir_fotos:
+            celdas[2].text = ""
 
-        for indice, detalle in enumerate(detalles):
+        for indice, (detalle, imagen) in enumerate(detalles):
             if indice == 0:
                 parrafo = celdas[1].paragraphs[0]
             else:
@@ -275,9 +288,17 @@ def informe_word(perfil, mes, anio, actividades):
 
             parrafo.add_run("• " + detalle)
 
+            if incluir_fotos and imagen:
+                parrafo_foto = celdas[2].paragraphs[0]
+                parrafo_foto.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                parrafo_foto.add_run().add_picture(
+                    imagen,
+                    width=Inches(1.0),
+                )
+
         # Resaltado tenue de fines de semana sin actividades
         if fecha.weekday() >= 5 and detalles in (
-            ["SÁBADO"], ["DOMINGO"]
+            [("SÁBADO", None)], [("DOMINGO", None)]
         ):
             from docx.oxml import OxmlElement
             from docx.oxml.ns import qn
@@ -396,7 +417,9 @@ def carta_pdf(perfil, mes, anio, fecha, desde=None, hasta=None):
                 )
             )
             if cargo:
-                elementos.append(Paragraph(escape(cargo), normal))
+                elementos.append(
+                    Paragraph(f"<b>{escape(cargo)}</b>", normal)
+                )
 
     elementos.append(Spacer(1, 12))
 
@@ -450,7 +473,7 @@ def carta_pdf(perfil, mes, anio, fecha, desde=None, hasta=None):
     return construir_pdf(elementos)
 
 
-def informe_pdf(perfil, mes, anio, actividades):
+def informe_pdf(perfil, mes, anio, actividades, incluir_fotos=False):
     normal, justificado, centrado, titulo = estilos_pdf()
 
     elementos = [
@@ -470,32 +493,49 @@ def informe_pdf(perfil, mes, anio, actividades):
         spaceAfter=3
     )
 
-    filas = [
-        [
-            Paragraph("<b>FECHA</b>", centrado),
-            Paragraph("<b>DETALLE</b>", centrado),
-        ]
+    encabezados = [
+        Paragraph("<b>FECHA</b>", centrado),
+        Paragraph("<b>DETALLE</b>", centrado),
     ]
+    if incluir_fotos:
+        encabezados.append(Paragraph("<b>FOTO</b>", centrado))
+    filas = [encabezados]
 
     for fecha, detalles in dias_informe(
         actividades, mes, anio
     ):
         contenido = [
             Paragraph("&#8226; " + escape(d), estilo_detalle)
-            for d in detalles
+            for d, _ in detalles
         ]
 
-        filas.append([
+        fila = [
             Paragraph(
                 fecha.strftime("%d/%m/%Y"),
                 estilo_detalle
             ),
-            contenido
-        ])
+            contenido,
+        ]
+        if incluir_fotos:
+            fotos = [
+                ReportLabImage(
+                    imagen,
+                    width=2.4 * cm,
+                    height=2.4 * cm,
+                    kind="proportional",
+                )
+                for _, imagen in detalles
+                if imagen
+            ]
+            fila.append(fotos)
+        filas.append(fila)
 
+    anchos = [3 * cm, 14 * cm]
+    if incluir_fotos:
+        anchos = [3 * cm, 10 * cm, 4 * cm]
     tabla = Table(
         filas,
-        colWidths=[3 * cm, 14 * cm],
+        colWidths=anchos,
         repeatRows=1,
         hAlign="CENTER"
     )
@@ -515,7 +555,7 @@ def informe_pdf(perfil, mes, anio, actividades):
         dias_informe(actividades, mes, anio), start=1
     ):
         if fecha.weekday() >= 5 and detalles in (
-            ["SÁBADO"], ["DOMINGO"]
+            [("SÁBADO", None)], [("DOMINGO", None)]
         ):
             estilos_tabla.append(
                 (

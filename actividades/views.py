@@ -6,6 +6,7 @@ import re
 from django.utils import timezone
 from django.db.models import Count
 from rest_framework import viewsets, permissions, status
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
@@ -16,6 +17,7 @@ from .serializers import ActividadSerializer
 class ActividadViewSet(viewsets.ModelViewSet):
     serializer_class = ActividadSerializer
     permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [JSONParser, FormParser, MultiPartParser]
 
     def get_queryset(self):
         queryset = Actividad.objects.filter(

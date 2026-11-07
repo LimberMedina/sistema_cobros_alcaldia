@@ -13,6 +13,7 @@ from rest_framework.response import Response
 
 from usuarios.models import Perfil
 from actividades.models import Actividad
+from .models import DocumentoGenerado
 
 from .generadores import (
     carta_word,
@@ -82,6 +83,21 @@ def respuesta_archivo(buffer, nombre, formato):
     )
 
 
+def registrar_documento(
+    request, tipo, mes, anio, formato,
+    fecha_emision=None, incluir_fotos=False
+):
+    DocumentoGenerado.objects.create(
+        usuario=request.user,
+        tipo=tipo,
+        mes=mes,
+        anio=anio,
+        formato=formato,
+        fecha_emision=fecha_emision,
+        incluir_fotos=incluir_fotos,
+    )
+
+
 class SolicitudDescargarView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -145,6 +161,9 @@ class SolicitudDescargarView(APIView):
             )
 
         nombre = f"solicitud_{anio}_{mes:02d}.{formato}"
+        registrar_documento(
+            request, "solicitud", mes, anio, formato, fecha
+        )
 
         return respuesta_archivo(archivo, nombre, formato)
 
@@ -155,6 +174,9 @@ class InformeDescargarView(APIView):
     def get(self, request):
         mes, anio, formato = parametros_periodo(request)
         perfil = obtener_perfil(request)
+        incluir_fotos = request.query_params.get(
+            "incluir_fotos", ""
+        ).lower() in ("1", "true", "si", "sí")
 
         actividades = list(
             Actividad.objects.filter(
@@ -166,16 +188,46 @@ class InformeDescargarView(APIView):
 
         if formato == "pdf":
             archivo = informe_pdf(
-                perfil, mes, anio, actividades
+                perfil, mes, anio, actividades, incluir_fotos
             )
         else:
             archivo = informe_word(
-                perfil, mes, anio, actividades
+                perfil, mes, anio, actividades, incluir_fotos
             )
 
         nombre = f"informe_{anio}_{mes:02d}.{formato}"
+        registrar_documento(
+            request, "informe", mes, anio, formato,
+            incluir_fotos=incluir_fotos,
+        )
 
         return respuesta_archivo(archivo, nombre, formato)
+
+
+class HistorialDocumentosView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        historial = DocumentoGenerado.objects.filter(
+            usuario=request.user
+        )[:100]
+
+        return Response([
+            {
+                "id": documento.id,
+                "tipo": documento.tipo,
+                "mes": documento.mes,
+                "anio": documento.anio,
+                "formato": documento.formato,
+                "fecha_emision": (
+                    documento.fecha_emision.isoformat()
+                    if documento.fecha_emision else None
+                ),
+                "incluir_fotos": documento.incluir_fotos,
+                "generado_en": documento.generado_en.isoformat(),
+            }
+            for documento in historial
+        ])
 
 
 class PeriodosDisponiblesView(APIView):

@@ -11,6 +11,7 @@ class ActividadSerializer(serializers.ModelSerializer):
             "id",
             "fecha",
             "descripcion",
+            "imagen",
             "creado_en",
             "actualizado_en",
         ]
