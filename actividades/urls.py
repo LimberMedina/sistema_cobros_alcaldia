@@ -4,6 +4,7 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
     ActividadViewSet,
+    ActividadImagenView,
     ActividadVozView,
     DashboardView,
 )
@@ -17,6 +18,11 @@ router.register(
 
 urlpatterns = [
     path("actividades/voz/", ActividadVozView.as_view()),
+    path(
+        "actividades/<int:pk>/imagen/",
+        ActividadImagenView.as_view(),
+        name="actividad-imagen",
+    ),
     path("dashboard/", DashboardView.as_view()),
     path("", include(router.urls)),
 ]

@@ -1,8 +1,10 @@
 
 from datetime import date
 import calendar
+import mimetypes
 import re
 
+from django.http import FileResponse, Http404
 from django.utils import timezone
 from django.db.models import Count
 from rest_framework import viewsets, permissions, status
@@ -62,6 +64,33 @@ class ActividadViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(usuario=self.request.user)
+
+
+class ActividadImagenView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk):
+        try:
+            actividad = Actividad.objects.get(
+                pk=pk,
+                usuario=request.user,
+            )
+        except Actividad.DoesNotExist as error:
+            raise Http404 from error
+
+        if not actividad.imagen:
+            raise Http404
+
+        try:
+            archivo = actividad.imagen.open("rb")
+        except (FileNotFoundError, OSError) as error:
+            raise Http404 from error
+
+        content_type, _ = mimetypes.guess_type(actividad.imagen.name)
+        return FileResponse(
+            archivo,
+            content_type=content_type or "application/octet-stream",
+        )
 
 
 class ActividadVozView(APIView):
