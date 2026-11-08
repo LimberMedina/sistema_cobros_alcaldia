@@ -6,7 +6,10 @@ from .models import Actividad
 
 
 class ActividadSerializer(serializers.ModelSerializer):
-    imagen = serializers.SerializerMethodField()
+    imagen = serializers.ImageField(
+        required=False,
+        allow_null=True,
+    )
 
     def get_imagen(self, obj):
         if not obj.imagen:
@@ -19,6 +22,11 @@ class ActividadSerializer(serializers.ModelSerializer):
             return path
 
         return request.build_absolute_uri(path)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["imagen"] = self.get_imagen(instance)
+        return data
 
     class Meta:
         model = Actividad
@@ -48,7 +56,7 @@ class ActividadSerializer(serializers.ModelSerializer):
         return value
 
     def update(self, instance, validated_data):
-        if validated_data.get("imagen") is None:
+        if "imagen" in validated_data and validated_data["imagen"] is None:
             instance.imagen.delete(save=False)
             instance.imagen = None
 
