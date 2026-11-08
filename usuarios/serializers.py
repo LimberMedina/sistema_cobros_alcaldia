@@ -117,4 +117,5 @@ class PerfilSerializer(serializers.ModelSerializer):
             "via_2",
             "cargo_via_2",
             "numero_instructivo",
+            "incluir_fotos_informe",
         ]

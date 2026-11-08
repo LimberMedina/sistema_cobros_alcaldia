@@ -30,5 +30,7 @@ class Perfil(models.Model):
         default="004/2026"
     )
 
+    incluir_fotos_informe = models.BooleanField(default=False)
+
     def __str__(self):
         return self.nombre_completo
