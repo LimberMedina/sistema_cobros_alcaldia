@@ -9,6 +9,7 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 
 from .models import Actividad
 from .serializers import ActividadSerializer
@@ -29,19 +30,35 @@ class ActividadViewSet(viewsets.ModelViewSet):
         fecha = self.request.query_params.get("fecha")
 
         if mes is not None:
-            queryset = queryset.filter(fecha__month=int(mes)) \
-                if mes.isdigit() and 1 <= int(mes) <= 12 \
-                else queryset.none()
+            try:
+                mes = int(mes)
+            except (ValueError, TypeError):
+                raise ValidationError({
+                    "mes": "El mes debe ser un número válido."
+                })
+            if not 1 <= mes <= 12:
+                raise ValidationError({
+                    "mes": "El mes debe estar entre 1 y 12."
+                })
+            queryset = queryset.filter(fecha__month=mes)
 
         if anio is not None:
-            queryset = queryset.filter(fecha__year=int(anio)) \
-                if anio.isdigit() and 1 <= int(anio) <= 9999 \
-                else queryset.none()
+            try:
+                anio = int(anio)
+            except (ValueError, TypeError):
+                raise ValidationError({
+                    "anio": "El año debe ser válido."
+                })
+            if not 1 <= anio <= 9999:
+                raise ValidationError({
+                    "anio": "El año no es válido."
+                })
+            queryset = queryset.filter(fecha__year=anio)
 
         if fecha:
             queryset = queryset.filter(fecha=fecha)
 
-        return queryset
+        return queryset.order_by("fecha", "id")
 
     def perform_create(self, serializer):
         serializer.save(usuario=self.request.user)
