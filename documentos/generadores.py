@@ -1,5 +1,6 @@
 
 import calendar
+import os
 from datetime import date
 from io import BytesIO
 from xml.sax.saxutils import escape
@@ -204,10 +205,20 @@ def dias_informe(actividades, mes, anio):
     agrupadas = {}
 
     for actividad in actividades:
+        imagen = None
+        if actividad.imagen:
+            try:
+                ruta_imagen = actividad.imagen.path
+            except (AttributeError, ValueError):
+                ruta_imagen = None
+
+            if ruta_imagen and os.path.isfile(ruta_imagen):
+                imagen = ruta_imagen
+
         agrupadas.setdefault(actividad.fecha, []).append(
             (
                 actividad.descripcion,
-                actividad.imagen.path if actividad.imagen else None,
+                imagen,
             )
         )
 
